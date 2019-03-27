@@ -12,3 +12,24 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
 }
+
+main {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.pokemon {
+  background-color: rgb(228, 228, 228);
+  height: 250px;
+  width: 150px;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  margin: 5px;
+  border-radius: 10px;
+}
+
+.pokemons {
+  display: flex;
+  flex-wrap: wrap;
+}
