@@ -1,87 +1,98 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Pokemon } from '../Pokemon/Pokemon';
-
-// export class PokemonList extends React.Component {
-//   constructor() {
-//     this.state = {
-//       list: []
-//     }
-//     this.fetchPokemons = this.fetchPokemons.bind(this);
-//   }
-
-//   fetchPokemons() {
-//     fetch('https://pokeapi.co/api/v2/pokemon')
-//       .then(res => res.json())
-//       .then(data => this.setState({ list: data.rusults }));
-//   }
-
-//   render() {    
-//     return (
-//       <div>
-//         <button onClick={this.fetchPokemons}>load pokemons</button>
-//         <div className='pokemons'>
-//           {this.state.list.map(pokemon => <Pokemon id={pokemon.id} name={pokemon.name} />)}
-//         </div>
-//       </div>
-//     );
-//   }
-// }
 
 const POKEMONS_PER_PAGE = 12;
 
-export function PokemonList () {
-  const [list, setList] = useState([]);
-  const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(false);
+const initialState = 'dict' in localStorage ? JSON.parse(localStorage.getItem('dict')) : {};
+
+export function PokemonList ({ match }) {
+  const page = +match.params.page;
+  const [dict, setDict] = useState(initialState);
+  const [loading, setLoading] = useState(true);
+  const [pokemonCount, setPokemonCount] = useState(); //state & setState
+
+  useEffect(() => fetchPokemons(), [match]); // componentDidUpdate
+
+  const handler = useCallback(() => {
+    if ('dict' in localStorage) {
+      const updatedDict = JSON.parse(localStorage.getItem('dict'));
+      setDict(updatedDict);
+    }
+  }, []); // this.handler
+
+  useEffect(() => {
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, [handler]); // componentDidMount & componentWillUnmount;
+
+  const ids = Array.from(
+    { length: POKEMONS_PER_PAGE },
+    (_, i) => (page - 1) * POKEMONS_PER_PAGE + 1 + i
+  );
+  const list = ids.map(id => dict[id]);
 
   const fetchPokemons = () => {
+    if (ids.every(id => dict[id])) return setLoading(false);
+
+    const offset = (page - 1) * POKEMONS_PER_PAGE;
+
     setLoading(true);
-    fetch(`https://pokeapi.co/api/v2/pokemon?offset=${page * POKEMONS_PER_PAGE}&limit=${POKEMONS_PER_PAGE}`)
+    fetch(`https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${POKEMONS_PER_PAGE}`)
       .then(res => res.json())
       .then(data => {
-        const loadedList = data.results.map(curr => {
-            return {
-                name: curr.name,
-                id: +curr.url.slice(34, -1),
-                catched: false
-            }
-        })
-        setList([...list, ...loadedList]);
-        setPage(page + 1);
+        const loadedDict = data.results.reduce((acc, curr) => {
+          const id = +curr.url.slice(34, -1);
+          acc[id] = {
+            id,
+            name: curr.name,
+            catched: false
+          }
+          return acc;
+        }, {});
+        const updatedDict = { ...dict, ...loadedDict };
+        setDict(updatedDict);
+        localStorage.setItem('dict', JSON.stringify(updatedDict));
+        setPokemonCount(data.count);
       })
       .finally(() => setLoading(false));
   }
 
   const catchPokemon = (id) => {
-    const updated = list.map(curr => {
-        if(curr.id === id) {
-            return {
-                ...curr,
-                catched: !curr.catched
-            }
-        }
-        return curr;
-    })
-    setList(updated);
+    const updatedDict = {
+      ...dict,
+      [id]: {
+        ...dict[id],
+        catched: !dict[id].catched
+      }
+    };
+    setDict(updatedDict);
+    localStorage.setItem('dict', JSON.stringify(updatedDict));
   }
 
-  const catchedCount = list.filter(curr => curr.catched).length;
+  const catchedCount = Object.values(dict).filter(curr => curr.catched).length;
+  const lastPage = Math.ceil(pokemonCount / POKEMONS_PER_PAGE);
 
-  return (
+  return ( 
     <div>
-      <button disabled={loading} onClick={fetchPokemons}>load pokemons</button>
       <span>Catched: {catchedCount}</span>
-      <div className='pokemons'>
-        {list.map(pokemon => (
-          <Pokemon
-            key={pokemon.id}
-            id={pokemon.id}
-            name={pokemon.name}
-            catched={pokemon.catched}
-            catchPokemon={catchPokemon}
-          />
+      {loading
+        ? 'Loading'
+        : (
+        <div className='pokemons'>
+          {list.map(pokemon => pokemon && (
+            <Pokemon
+              key={pokemon.id}
+              id={pokemon.id}
+              name={pokemon.name}
+              catched={pokemon.catched}
+              catchPokemon={catchPokemon}
+            />
         ))}
-      </div>
+        </div>
+      )}
+      {page !== 1 && <Link to={`/pokemons/${page - 1}`}>Prev</Link>}
+      {page !== lastPage && <Link to={`/pokemons/${page + 1}`}>Next</Link>}
     </div>
   );
 }
