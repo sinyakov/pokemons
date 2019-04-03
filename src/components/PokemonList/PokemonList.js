@@ -12,26 +12,6 @@ export function PokemonList ({ match }) {
   const [loading, setLoading] = useState(true);
   const [pokemonCount, setPokemonCount] = useState(); //state & setState
 
-  useEffect(() => fetchPokemons(), [match]); // componentDidUpdate
-
-  const handler = useCallback(() => {
-    if ('dict' in localStorage) {
-      const updatedDict = JSON.parse(localStorage.getItem('dict'));
-      setDict(updatedDict);
-    }
-  }, []); // this.handler
-
-  useEffect(() => {
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
-  }, [handler]); // componentDidMount & componentWillUnmount;
-
-  const ids = Array.from(
-    { length: POKEMONS_PER_PAGE },
-    (_, i) => (page - 1) * POKEMONS_PER_PAGE + 1 + i
-  );
-  const list = ids.map(id => dict[id]);
-
   const fetchPokemons = () => {
     if (ids.every(id => dict[id])) return setLoading(false);
 
@@ -52,7 +32,6 @@ export function PokemonList ({ match }) {
         }, {});
         const updatedDict = { ...dict, ...loadedDict };
         setDict(updatedDict);
-        localStorage.setItem('dict', JSON.stringify(updatedDict));
         setPokemonCount(data.count);
       })
       .finally(() => setLoading(false));
@@ -67,8 +46,31 @@ export function PokemonList ({ match }) {
       }
     };
     setDict(updatedDict);
-    localStorage.setItem('dict', JSON.stringify(updatedDict));
   }
+
+  useEffect(() => fetchPokemons(), [match]); // componentDidUpdate
+
+  const handler = useCallback(() => {
+    if ('dict' in localStorage) {
+      const updatedDict = JSON.parse(localStorage.getItem('dict'));
+      setDict(updatedDict);
+    }
+  }, []); // this.handler
+
+  useEffect(() => {
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, [handler]); // componentDidMount & componentWillUnmount;
+
+  useEffect(() => {
+    localStorage.setItem('dict', JSON.stringify(dict));
+  }, [dict]);
+
+  const ids = Array.from(
+    { length: POKEMONS_PER_PAGE },
+    (_, i) => (page - 1) * POKEMONS_PER_PAGE + 1 + i
+  );
+  const list = ids.map(id => dict[id]);
 
   const catchedCount = Object.values(dict).filter(curr => curr.catched).length;
   const lastPage = Math.ceil(pokemonCount / POKEMONS_PER_PAGE);
